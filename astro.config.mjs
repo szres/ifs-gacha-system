@@ -5,37 +5,42 @@ import tailwindcss from '@tailwindcss/vite';
 import AstroPWA from '@vite-pwa/astro';
 
 export default defineConfig({
+  site: 'https://szres.github.io',
+  base: '/ifs-gacha-system',
+  output: 'static',
   integrations: [
     svelte(),
     AstroPWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Astro PWA Starter',
-        short_name: 'AstroPWA',
-        description: 'Astro + Svelte + Tailwind + DaisyUI PWA',
+        name: 'IFS 抽奖系统',
+        short_name: 'IFS Gacha',
+        description: '可重现的 IFS 抽奖系统',
         theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',
+        start_url: '/ifs-gacha-system/',
+        scope: '/ifs-gacha-system/',
         icons: [
           {
-            src: '/pwa-192x192.png',
+            src: 'pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png',
           },
           {
-            src: '/pwa-512x512.png',
+            src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
           },
         ],
       },
       workbox: {
-        navigateFallback: '/404',
+        navigateFallback: '/ifs-gacha-system/404',
         globPatterns: ['**/*.{css,js,html,svg,png,ico,txt}'],
       },
       devOptions: {
         enabled: true,
-        navigateFallbackAllowlist: [/^\/$/],
+        navigateFallbackAllowlist: [/^\/$/, /^\/ifs-gacha-system\/$/],
       },
     }),
   ],
