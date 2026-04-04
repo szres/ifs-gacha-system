@@ -1,5 +1,16 @@
 <script lang="ts">
+	import { onMount } from "svelte";
+	import {
+		fallbackLocale,
+		getLocaleFromLanguage,
+		isLocale,
+		messages,
+		type Locale
+	} from "../i18n";
+
 	const MAX_USERS = 1000;
+	const GITHUB_REPO_URL = "https://github.com/szres/ifs-gacha-system";
+	const LOCALE_STORAGE_KEY = "ifs-gacha-system-locale";
 
 	type DrawResult = {
 		imageHash: string;
@@ -19,6 +30,19 @@
 	let winners: number[] = [];
 	let errorMessage = "";
 	let isHashing = false;
+	let locale: Locale = fallbackLocale;
+	let localeInitialized = false;
+
+	onMount(() => {
+		const storedLocale = window.localStorage.getItem(LOCALE_STORAGE_KEY);
+		if (storedLocale && isLocale(storedLocale)) {
+			locale = storedLocale;
+		} else {
+			locale = getLocaleFromLanguage(navigator.language);
+		}
+		document.documentElement.lang = messages[locale].metaLocale;
+		localeInitialized = true;
+	});
 
 	async function sha256Hex(input: ArrayBuffer | string): Promise<string> {
 		const data =
@@ -78,11 +102,11 @@
 		const count = Number(winnerValue);
 
 		if (!imageFile) {
-			return { valid: false, total: 0, count: 0, error: "请先上传图片。" };
+			return { valid: false, total: 0, count: 0, error: t.errors.uploadImageFirst };
 		}
 
 		if (!passcode.trim()) {
-			return { valid: false, total: 0, count: 0, error: "请输入字符串（例如 passcode）。" };
+			return { valid: false, total: 0, count: 0, error: t.errors.inputPasscode };
 		}
 
 		if (!Number.isInteger(total) || total < 1 || total > MAX_USERS) {
@@ -90,16 +114,16 @@
 				valid: false,
 				total: 0,
 				count: 0,
-				error: `抽奖总人数必须是 1 到 ${MAX_USERS} 之间的整数。`
+				error: t.errors.totalUsers(MAX_USERS)
 			};
 		}
 
 		if (!Number.isInteger(count) || count < 0) {
-			return { valid: false, total: 0, count: 0, error: "中奖人数必须是大于等于 0 的整数。" };
+			return { valid: false, total: 0, count: 0, error: t.errors.winnerCount };
 		}
 
 		if (count > total) {
-			return { valid: false, total: 0, count: 0, error: "中奖人数不能大于抽奖总人数。" };
+			return { valid: false, total: 0, count: 0, error: t.errors.winnerExceedsTotal };
 		}
 
 		return { valid: true, total, count, error: "" };
@@ -125,7 +149,7 @@
 			const buffer = await file.arrayBuffer();
 			imageHash = await sha256Hex(buffer);
 		} catch {
-			errorMessage = "图片哈希计算失败，请重试。";
+			errorMessage = t.errors.imageHashFailed;
 		} finally {
 			isHashing = false;
 		}
@@ -142,7 +166,7 @@
 		}
 
 		if (!imageHash) {
-			errorMessage = isHashing ? "图片哈希仍在计算中，请稍候。" : "尚未获得图片哈希，请重新上传图片。";
+			errorMessage = isHashing ? t.errors.hashInProgress : t.errors.missingImageHash;
 			return;
 		}
 
@@ -151,12 +175,31 @@
 			seed = `${imageHash}:${passcodeHash}`;
 			winners = drawWinners(validation.total, validation.count, seed);
 		} catch {
-			errorMessage = "抽奖过程失败，请重试。";
+			errorMessage = t.errors.drawFailed;
 		}
+	}
+
+	function changeLocale(nextLocale: Locale) {
+		locale = nextLocale;
+		if (typeof window !== "undefined") {
+			window.localStorage.setItem(LOCALE_STORAGE_KEY, nextLocale);
+		}
+	}
+
+	function handleLocaleChange(event: Event) {
+		const select = event.currentTarget as HTMLSelectElement;
+		changeLocale(select.value as Locale);
 	}
 
 	$: canDraw =
 		Boolean(imageFile) && Boolean(passcode.trim()) && Boolean(totalUsers) && Boolean(winnerCount) && !isHashing;
+
+	$: t = messages[locale];
+	$: selectedFileText = t.hints.selectedFile.replace("{name}", imageFileName);
+	$: validationText = t.hints.validation.replace("{maxUsers}", String(MAX_USERS));
+	$: if (typeof document !== "undefined") {
+		document.documentElement.lang = t.metaLocale;
+	}
 
 	$: result =
 		imageHash && passcodeHash && seed
@@ -164,12 +207,53 @@
 			: null;
 </script>
 
+<svelte:head>
+	<title>{t.pageTitle}</title>
+	<meta name="description" content={t.pageDescription} />
+</svelte:head>
+
 <section class="min-h-screen bg-base-200 px-4 py-6 text-base-content">
 	<div class="mx-auto flex w-full max-w-md flex-col gap-4">
-		<div class="text-center">
-			<h1 class="text-3xl font-bold text-primary">IFS 抽奖系统</h1>
+		<div class="flex flex-col gap-3 text-center">
+			<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<a class="btn btn-outline btn-sm" href={GITHUB_REPO_URL} target="_blank" rel="noreferrer">
+					{t.githubStar}
+				</a>
+
+				<label class="form-control flex mx-auto w-full max-w-[140px] sm:mx-0">
+					<div class="label py-0 px-2">
+						<span class="label-text text-base-content/70" aria-hidden="true">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.8"
+								class="h-4 w-4"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M12 3c4.97 0 9 4.03 9 9s-4.03 9-9 9-9-4.03-9-9 4.03-9 9-9Z" />
+								<path stroke-linecap="round" stroke-linejoin="round" d="M3.6 9h16.8M3.6 15h16.8" />
+								<path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.5 2.46 4 5.6 4 9s-1.5 6.54-4 9c-2.5-2.46-4-5.6-4-9s1.5-6.54 4-9Z" />
+							</svg>
+						</span>
+					</div>
+					<select
+						class="select select-bordered select-sm w-full"
+						bind:value={locale}
+						on:change={handleLocaleChange}
+						aria-label={t.language}
+						disabled={!localeInitialized}
+					>
+						<option value="zh">中文</option>
+						<option value="en">English</option>
+						<option value="ja">日本語</option>
+					</select>
+				</label>
+			</div>
+
+			<h1 class="text-3xl font-bold text-primary">{t.title}</h1>
 			<p class="mt-2 text-sm leading-6 text-base-content/75">
-				上传相同图片并输入相同字符串，即可得到完全一致、可重现的抽奖结果。
+				{t.subtitle}
 			</p>
 		</div>
 
@@ -177,7 +261,7 @@
 			<div class="card-body gap-4">
 				<div>
 					<label class="label" for="image-upload">
-						<span class="label-text font-medium">1. 上传图片</span>
+						<span class="label-text font-medium">{t.steps.uploadImage}</span>
 					</label>
 					<input
 						id="image-upload"
@@ -187,19 +271,19 @@
 						on:change={handleImageChange}
 					/>
 					{#if imageFileName}
-						<p class="mt-2 break-all text-xs text-base-content/70">已选择：{imageFileName}</p>
+						<p class="mt-2 break-all text-xs text-base-content/70">{selectedFileText}</p>
 					{/if}
 				</div>
 
 				<div>
 					<label class="label" for="passcode">
-						<span class="label-text font-medium">2. 输入字符串 / Passcode</span>
+						<span class="label-text font-medium">{t.steps.inputPasscode}</span>
 					</label>
 					<input
 						id="passcode"
 						type="text"
 						bind:value={passcode}
-						placeholder="请输入当场 IFS passcode"
+						placeholder={t.placeholders.passcode}
 						class="input input-bordered w-full"
 					/>
 				</div>
@@ -207,7 +291,7 @@
 				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
 					<div>
 						<label class="label" for="total-users">
-							<span class="label-text font-medium">3. 抽奖总人数</span>
+							<span class="label-text font-medium">{t.steps.totalUsers}</span>
 						</label>
 						<input
 							id="total-users"
@@ -217,14 +301,14 @@
 							step="1"
 							inputmode="numeric"
 							bind:value={totalUsers}
-							placeholder="1 - 1000"
+							placeholder={t.placeholders.totalUsers}
 							class="input input-bordered w-full"
 						/>
 					</div>
 
 					<div>
 						<label class="label" for="winner-count">
-							<span class="label-text font-medium">4. 中奖人数</span>
+							<span class="label-text font-medium">{t.steps.winnerCount}</span>
 						</label>
 						<input
 							id="winner-count"
@@ -234,14 +318,14 @@
 							step="1"
 							inputmode="numeric"
 							bind:value={winnerCount}
-							placeholder="0 - N"
+							placeholder={t.placeholders.winnerCount}
 							class="input input-bordered w-full"
 						/>
 					</div>
 				</div>
 
 				<p class="text-xs leading-5 text-base-content/70">
-					校验规则：总人数 1~{MAX_USERS}，中奖人数 0~N，且都必须是整数。
+					{validationText}
 				</p>
 
 				{#if errorMessage}
@@ -250,9 +334,9 @@
 
 				<button class="btn btn-primary btn-block" on:click={handleDraw} disabled={!canDraw}>
 					{#if isHashing}
-						正在计算图片哈希...
+						{t.buttons.drawing}
 					{:else}
-						开始抽奖
+						{t.buttons.draw}
 					{/if}
 				</button>
 			</div>
@@ -260,25 +344,25 @@
 
 		<div class="card border border-base-300 bg-base-100 shadow-sm">
 			<div class="card-body gap-3">
-				<h2 class="card-title text-lg">结果与复现信息</h2>
+				<h2 class="card-title text-lg">{t.results.title}</h2>
 
 				<div>
-					<p class="text-sm font-medium">图片 Hash</p>
-					<p class="mt-1 break-all rounded-box bg-base-200 p-3 text-xs">{imageHash || "等待上传图片"}</p>
+					<p class="text-sm font-medium">{t.results.imageHash}</p>
+					<p class="mt-1 break-all rounded-box bg-base-200 p-3 text-xs">{imageHash || t.hints.waitingUpload}</p>
 				</div>
 
 				<div>
-					<p class="text-sm font-medium">字符串 Hash</p>
-					<p class="mt-1 break-all rounded-box bg-base-200 p-3 text-xs">{passcodeHash || "等待执行抽奖"}</p>
+					<p class="text-sm font-medium">{t.results.passcodeHash}</p>
+					<p class="mt-1 break-all rounded-box bg-base-200 p-3 text-xs">{passcodeHash || t.hints.waitingDraw}</p>
 				</div>
 
 				<div>
-					<p class="text-sm font-medium">随机 Seed</p>
-					<p class="mt-1 break-all rounded-box bg-base-200 p-3 text-xs">{seed || "等待执行抽奖"}</p>
+					<p class="text-sm font-medium">{t.results.seed}</p>
+					<p class="mt-1 break-all rounded-box bg-base-200 p-3 text-xs">{seed || t.hints.waitingDraw}</p>
 				</div>
 
 				<div>
-					<p class="text-sm font-medium">中奖序号</p>
+					<p class="text-sm font-medium">{t.results.winners}</p>
 					{#if result}
 						{#if winners.length > 0}
 							<div class="mt-2 flex flex-wrap gap-2">
@@ -287,10 +371,10 @@
 								{/each}
 							</div>
 						{:else}
-							<p class="mt-1 rounded-box bg-base-200 p-3 text-sm">本次中奖人数为 0，没有中奖序号。</p>
+							<p class="mt-1 rounded-box bg-base-200 p-3 text-sm">{t.hints.zeroWinners}</p>
 						{/if}
 					{:else}
-						<p class="mt-1 rounded-box bg-base-200 p-3 text-sm">等待执行抽奖</p>
+						<p class="mt-1 rounded-box bg-base-200 p-3 text-sm">{t.hints.waitingDraw}</p>
 					{/if}
 				</div>
 			</div>
