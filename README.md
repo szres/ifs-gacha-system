@@ -1,4 +1,4 @@
-# IFS 抽奖系统
+# [IFS 抽奖系统](https://szres.github.io/ifs-gacha-system/)
 
 一个为 **Ingress First Saturday** 活动设计的可复现抽奖系统。
 
