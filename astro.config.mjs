@@ -13,9 +13,9 @@ export default defineConfig({
     AstroPWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'IFS 抽奖系统',
+        name: 'IFS Gacha System',
         short_name: 'IFS Gacha',
-        description: '可重现的 IFS 抽奖系统',
+        description: 'A reproducible gacha system for Ingress First Saturday events',
         theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',
